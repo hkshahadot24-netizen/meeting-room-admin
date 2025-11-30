@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, interactive-widget=resizes-content" />
+  <title>মিটিং রুম (এডমিন)</title>
+  <style>
+    :root{
+      --bg:#f9fafb;
+      --primary-1: #ff5c8a; 
+      --primary-2: #ff2d55;
+      --muted:#6b7280;
+      --card-shadow: 0 6px 20px rgba(12,20,40,0.08);
+      --glass-border: rgba(255,255,255,0.3);
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Bengali', 'Helvetica Neue', Arial;
+    }
+    
+    html, body {
+        height: 100%; margin: 0; background: linear-gradient(180deg, #fff 0%, #fff0f5 100%);
+        color: #111; -webkit-tap-highlight-color: transparent; overflow: hidden; position: fixed; width: 100%;
+    }
+
+    /* --- Splash Screen --- */
+    #splash-screen {
+        position: fixed; inset: 0; background: white; z-index: 9999;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        transition: opacity 0.5s ease-out, visibility 0.5s;
+    }
+    #splash-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .splash-title {
+        font-size: 28px; font-weight: 800;
+        background: linear-gradient(135deg, var(--primary-1), var(--primary-2));
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        margin-bottom: 24px; animation: pulseText 2s infinite ease-in-out;
+    }
+    .spinner {
+        width: 40px; height: 40px; border: 3px solid rgba(255, 92, 138, 0.1);
+        border-left-color: var(--primary-1); border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    .splash-footer { padding-bottom: 30px; text-align: center; width: 100%; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    @keyframes pulseText { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } }
+
+    /* --- Main Layout --- */
+    .wrap {
+        max-width: 420px; margin: 0 auto; background: white; height: 100%;
+        display: flex; flex-direction: column; position: relative;
+    }
+    @media (min-width: 481px) {
+        .wrap {
+            margin: 18px auto; border-radius: 18px; height: calc(100vh - 36px) !important;
+            background: linear-gradient(180deg,rgba(255,255,255,0.95), rgba(255,240,245,0.95));
+            box-shadow: var(--card-shadow); border: 1px solid var(--glass-border);
+        }
+    }
+
+    /* --- Header --- */
+    header.app {
+        display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+        border-bottom: 1px solid rgba(0,0,0,0.05); background: white; z-index: 10; flex-shrink: 0; min-height: 50px;
+    }
+    .logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--primary-1),var(--primary-2));display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 4px 12px rgba(255, 45, 85, 0.25)}
+    .title{flex:1}
+    .title h1{margin:0;font-size:16px; font-weight: 700; color: #1f2937;}
+    .title p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+    .admin-badge {
+        background: var(--primary-2); color: white; padding: 2px 6px; border-radius: 4px; font-size: 9px; margin-left: 5px; display: inline-block; vertical-align: middle;
+    }
+    
+    /* Users Button */
+    .users-btn {
+        background: #f3f4f6; border: none; padding: 8px 12px; border-radius: 10px;
+        font-size: 13px; font-weight: 600; color: #374151; cursor: pointer; display: flex; align-items: center; gap: 5px;
+    }
+    .users-btn:active { background: #e5e7eb; }
+
+    /* --- Chat Area --- */
+    main.chat { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #fffbfd; position: relative; }
+    .messages { flex: 1; overflow-y: auto; padding: 10px 16px; display: flex; flex-direction: column; gap: 2px; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+
+    .date-divider { display: flex; justify-content: center; margin: 24px 0 12px; position: relative; }
+    .date-divider span { background: rgba(0,0,0,0.05); color: #555; font-size: 11px; padding: 4px 12px; border-radius: 12px; font-weight: 600; }
+
+    .empty-state { display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #d1d5db; text-align: center; margin-top: -40px; }
+    .empty-state svg { width: 64px; height: 64px; margin-bottom: 12px; opacity: 0.5; }
+    .empty-state p { font-size: 14px; color: #9ca3af; }
+
+    .msg {
+        display:block; max-width:80%; padding:8px 14px; border-radius:18px; 
+        position:relative; word-wrap:break-word; font-size: 15px; 
+        line-height: 1.6; word-spacing: 2px;
+        box-shadow: 0 1px 1px rgba(0,0,0,0.03); user-select: none; transition: transform 0.1s; cursor: pointer;
+        margin-bottom: 2px;
+    }
+    .msg:active { transform: scale(0.98); }
+    .msg .sender-name { 
+        font-weight: 700; font-size: 11px; color: var(--primary-2); margin-bottom: 4px; display: block;
+        cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;
+    }
+
+    .msg.me { align-self: flex-end; background: linear-gradient(135deg, var(--primary-1), var(--primary-2)); color: white; }
+    .msg.me.first-of-group { border-bottom-right-radius: 4px; margin-top: 6px; }
+    .msg.me.middle-of-group { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+    .msg.me.last-of-group { border-top-right-radius: 4px; border-bottom-right-radius: 18px; margin-bottom: 8px; }
+    .msg.me:not(.first-of-group):not(.middle-of-group):not(.last-of-group) { margin-top: 6px; margin-bottom: 8px; }
+
+    .msg.you { align-self: flex-start; background: white; color: #1f2937; border: 1px solid #fce7f3; }
+    .msg.you.first-of-group { border-bottom-left-radius: 4px; margin-top: 6px; }
+    .msg.you.middle-of-group { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+    .msg.you.last-of-group { border-top-left-radius: 4px; border-bottom-left-radius: 18px; margin-bottom: 8px; }
+    .msg.you:not(.first-of-group):not(.middle-of-group):not(.last-of-group) { margin-top: 6px; margin-bottom: 8px; }
+
+    .msg.me .meta { color: rgba(255,255,255,0.75); }
+    .msg.you .meta { color: var(--muted); }
+    .meta { font-size: 9px; display:flex; gap:6px; align-items:center; justify-content: flex-end; margin-top: 2px; opacity: 0.8; }
+
+    .typing-indicator {
+        align-self: flex-start; background: white; padding: 10px 14px; border-radius: 18px;
+        border-bottom-left-radius: 4px; border: 1px solid #fce7f3; display: none;
+        align-items: center; gap: 4px; margin-bottom: 8px; margin-left: 16px; margin-top: 5px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05); animation: slideIn 0.2s ease-out;
+    }
+    .typing-indicator.active { display: flex; }
+    .dot { width: 5px; height: 5px; background: #ff5c8a; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
+    .dot:nth-child(1) { animation-delay: -0.32s; } .dot:nth-child(2) { animation-delay: -0.16s; }
+    @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    .scroll-bottom-btn {
+        position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%);
+        background: var(--primary-2); color: white; padding: 8px 16px; border-radius: 20px;
+        font-size: 12px; font-weight: 600; cursor: pointer;
+        box-shadow: 0 4px 15px rgba(255, 45, 85, 0.4); transition: all 0.3s; z-index: 50; display: flex; align-items: center; gap: 6px;
+    }
+    .scroll-bottom-btn.hidden { opacity: 0; pointer-events: none; transform: translate(-50%, 20px); }
+
+    /* --- Input Area --- */
+    footer.input {
+        display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid rgba(0,0,0,0.05);
+        align-items: flex-end; background: white; flex-shrink: 0; box-shadow: 0 -1px 3px rgba(0,0,0,0.02);
+    }
+    .input-container {
+        flex: 1; background: #fff0f7; border-radius: 24px; border: 1px solid #fbcfe8;
+        padding: 8px 12px 8px 16px; display: flex; align-items: center; transition: all 0.2s; gap: 8px;
+    }
+    .input-container:focus-within { background: white; border-color: var(--primary-1); box-shadow: 0 0 0 3px rgba(255, 92, 138, 0.15); }
+    .input textarea { flex: 1; border: none; background: transparent; padding: 4px 0; resize: none; font-size: 15px; outline: none; max-height: 120px; min-height: 24px; overflow-y: hidden; line-height: 1.4; }
+    .emoji-btn { border: none; background: transparent; font-size: 20px; cursor: pointer; padding: 0; opacity: 0.6; }
+    .send-btn {
+        background: linear-gradient(90deg,var(--primary-1),var(--primary-2)); border:none; color:white;
+        width: 44px; height: 44px; border-radius: 50%; display:flex; align-items:center; justify-content:center;
+        cursor:pointer; flex-shrink: 0; box-shadow: 0 4px 12px rgba(255, 45, 85, 0.3); transition: all 0.2s;
+    }
+    .send-btn:disabled { background: #e5e7eb; color: #9ca3af; box-shadow: none; cursor: default; transform: scale(0.95); }
+
+    /* Modals & Overlays */
+    .modal-overlay, .action-sheet-overlay {
+        position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(2px);
+        display:none; align-items:center; justify-content:center; z-index: 1000;
+    }
+    .modal-overlay.active, .action-sheet-overlay.active { display: flex; }
+    .card { width:100%; max-width:320px; background:white; border-radius:24px; padding:24px; animation: popIn 0.3s; box-shadow: 0 10px 30px rgba(0,0,0,0.15); display: flex; flex-direction: column; max-height: 80vh; }
+    @keyframes popIn { from {transform: scale(0.95); opacity: 0;} to {transform: scale(1); opacity: 1;} }
+    
+    .action-sheet-overlay { align-items: flex-end; }
+    .action-sheet { width: 100%; max-width: 420px; background: white; border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 20px 16px 30px; animation: slideUp 0.2s; display: flex; flex-direction: column; gap: 8px; }
+    @keyframes slideUp { from {transform: translateY(100%);} to {transform: translateY(0);} }
+    .sheet-btn { width: 100%; padding: 14px; border: none; background: #fff0f5; border-radius: 12px; font-size: 16px; font-weight: 600; color: #831843; cursor: pointer; }
+    .sheet-btn.danger { color: #ef4444; background: #fee2e2; }
+    .sheet-btn.info { color: #1e40af; background: #dbeafe; }
+
+    /* User List Styles */
+    .user-list-container { overflow-y: auto; margin: 10px -10px; padding: 0 10px; }
+    .user-item { 
+        display: flex; align-items: center; padding: 10px; border-radius: 12px; border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: background 0.2s; 
+    }
+    .user-item:hover { background: #f9fafb; }
+    .user-item.blocked { background: #fef2f2; }
+    .user-avatar { width: 36px; height: 36px; background: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #6b7280; margin-right: 12px; font-size: 14px; }
+    .user-details { flex: 1; }
+    .user-name { font-size: 14px; font-weight: 600; color: #1f2937; }
+    .user-phone { font-size: 11px; color: #6b7280; }
+    .status-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #10b981; color: white; margin-left: auto; }
+    .status-badge.blocked { background: #ef4444; }
+
+    /* Common UI Elements */
+    .modal-title { margin:0 0 10px 0; font-size: 18px; font-weight: 700; color: #111; display: flex; justify-content: space-between; align-items: center; }
+    .modal-body { font-size: 14px; color: #4b5563; margin-bottom: 20px; }
+    .row { display:flex; flex-direction:column; gap:12px; margin-bottom:20px; }
+    .row input { padding:14px; border-radius:12px; border:1px solid #e5e7eb; font-size:15px; outline:none; width: 100%; box-sizing: border-box; }
+    .row input:read-only { background: #f3f4f6; color: #6b7280; }
+    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: auto;}
+    .btn-primary { background: var(--primary-2); color:white; padding:10px 20px; border-radius:12px; border:0; font-weight:600; cursor:pointer; font-size: 14px; }
+    .btn-secondary { background:transparent; color: var(--muted); border: 1px solid #e5e7eb; padding: 10px 16px; border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 14px; }
+    .btn-danger { background: #ef4444; color:white; padding:10px 16px; border-radius:12px; border:0; font-weight:600; cursor:pointer; font-size: 14px; }
+    .error-msg { color: #ef4444; font-size: 13px; margin-top: 4px; display: none; }
+  </style>
+</head>
+<body>
+
+  <!-- SPLASH SCREEN -->
+  <div id="splash-screen">
+    <div class="splash-content" style="text-align: center;">
+        <div class="splash-title">Meeting Room</div>
+        <div class="spinner" style="margin: 0 auto;"></div>
+    </div>
+    <div class="splash-footer">
+        <div class="org-name">মেইন গেইট সমবায় সমিতি</div>
+        <div class="copyright">Admin Access</div>
+    </div>
+  </div>
+
+  <div class="wrap" id="app">
+    <header class="app">
+      <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      </div>
+      <div class="title">
+        <h1>Admin <span class="admin-badge">SUPERUSER</span></h1>
+        <p>Control Panel</p>
+      </div>
+      <!-- NEW: User List Button -->
+      <button class="users-btn" id="btnShowUsers">
+         👥 Users
+      </button>
+    </header>
+
+    <main class="chat">
+      <div id="emptyState" class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+        <p>No messages yet.</p>
+      </div>
+
+      <div class="messages" id="messages"></div>
+      
+      <div class="typing-indicator" id="typingIndicator">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+
+      <div id="scrollBtn" class="scroll-bottom-btn hidden">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+        New
+      </div>
+
+      <footer class="input">
+        <div class="input-container">
+            <textarea id="messageInput" rows="1" placeholder="Type as Admin..."></textarea>
+            <button class="emoji-btn" id="emojiBtn">😊</button>
+        </div>
+        <button class="send-btn" id="sendBtn" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+        </button>
+      </footer>
+    </main>
+  </div>
+
+  <!-- User Management Modal -->
+  <div class="modal-overlay" id="entryModal">
+    <div class="card">
+      <h2 class="modal-title" id="entryTitle">User Management</h2>
+      <div class="modal-body" id="entryBody">Edit User Info or Block User</div>
+      <div class="row">
+        <label style="font-size: 11px; color: #6b7280; margin-bottom: -8px;">Name</label>
+        <input id="nameInput" placeholder="Name" autocomplete="off"/>
+        
+        <label style="font-size: 11px; color: #6b7280; margin-bottom: -8px;">Phone</label>
+        <input id="phoneInput" placeholder="Phone" type="tel" autocomplete="off"/>
+        
+        <label style="font-size: 11px; color: #6b7280; margin-bottom: -8px;">UID (Read Only)</label>
+        <input id="uidInput" placeholder="ID" readonly style="font-family: monospace; font-size: 12px;"/>
+        
+        <div id="entryError" class="error-msg">Input required</div>
+      </div>
+      
+      <div class="modal-footer" style="justify-content: space-between; width:100%;">
+          <button class="btn-danger" id="blockUserBtn">Block</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-secondary" id="adminCancelBtn">Cancel</button>
+            <button class="btn-primary" id="adminSaveBtn">Save</button>
+          </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- All Users List Modal -->
+  <div class="modal-overlay" id="usersListModal">
+    <div class="card" style="height: 500px;">
+        <h2 class="modal-title">
+            সকল ইউজার 
+            <span id="totalUserCount" style="font-size: 12px; background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 10px;">0</span>
+        </h2>
+        <div class="modal-body" style="margin-bottom: 5px;">ইউজার ম্যানেজ করতে নামের উপর ক্লিক করুন।</div>
+        <div class="user-list-container" id="allUsersContainer">
+            <!-- User Items Injected Here -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" id="closeUsersBtn">Close</button>
+        </div>
+    </div>
+  </div>
+
+  <!-- Message Info / Seen By Modal -->
+  <div class="modal-overlay" id="msgInfoModal">
+      <div class="card">
+          <h2 class="modal-title">মেসেজ ইনফো</h2>
+          <div class="modal-body">
+              <p style="font-weight: bold; margin-bottom: 5px;">মেসেজ:</p>
+              <p id="infoMsgText" style="font-style: italic; color: #6b7280; margin-bottom: 15px; border-left: 2px solid #ddd; padding-left: 8px;"></p>
+              
+              <p style="font-weight: bold; margin-bottom: 5px;">Seen By:</p>
+              <div id="seenByList" style="max-height: 150px; overflow-y: auto;">
+                  <!-- Seen names injected here -->
+                  <div style="font-size: 13px; color: #9ca3af;">No read receipts available.</div>
+              </div>
+          </div>
+          <div class="modal-footer">
+              <button class="btn-primary" id="closeMsgInfoBtn">OK</button>
+          </div>
+      </div>
+  </div>
+
+  <!-- Options Sheet -->
+  <div class="action-sheet-overlay" id="optionsSheet">
+    <div class="action-sheet">
+        <div style="text-align:center; font-size:13px; color:#9ca3af; margin-bottom:4px;">অ্যাকশন (এডমিন)</div>
+        <button class="sheet-btn info" id="optInfo">মেসেজ ইনফো (Seen By)</button>
+        <button class="sheet-btn" id="optEdit">মেসেজ এডিট করুন</button>
+        <button class="sheet-btn danger" id="optDelete">মেসেজ ডিলেট করুন</button>
+        <button class="sheet-btn" id="optCancel">বন্ধ করুন</button>
+    </div>
+  </div>
+
+  <!-- Confirm Dialog -->
+  <div class="modal-overlay" id="dialogModal">
+    <div class="card">
+      <h2 class="modal-title" id="dTitle"></h2>
+      <div class="modal-body" id="dBody"></div>
+      <div class="row" id="dInputContainer" style="display:none;"><input id="dInput" /></div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="dCancel">না</button>
+        <button class="btn-primary" id="dOk">হ্যাঁ</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, push, set, onValue, update, remove, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDLxkzc6vwiVGIXH6yn7OPdTBj2eBkXCFw",
+      authDomain: "meeting-room-b743b.firebaseapp.com",
+      databaseURL: "https://meeting-room-b743b-default-rtdb.firebaseio.com",
+      projectId: "meeting-room-b743b",
+      storageBucket: "meeting-room-b743b.firebasestorage.app",
+      messagingSenderId: "324490946720",
+      appId: "1:324490946720:web:b27e2a7781b35a766a41c5"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const messagesRef = ref(db, 'messages');
+    const typingRef = ref(db, 'typing');
+    const usersRef = ref(db, 'users');
+
+    const $ = sel => document.querySelector(sel);
+    
+    // --- DIRECT ADMIN ENTRY ---
+    // No LocalStorage check. Admin is always logged in on this file.
+    const user = {
+        name: 'Admin',
+        phone: '00000',
+        uid: 'ADMIN_MASTER_ID',
+        isAdmin: true
+    };
+    
+    let loadedMessages = [];
+    let allUsersData = {};
+    let isUserNearBottom = true;
+    let typingTimeout;
+    let currentMsgId = null;
+    let currentMsgText = null;
+    let currentMsgObj = null; // Store full object for "Seen" logic
+    let targetUserUid = null;
+
+    const messagesEl = $('#messages');
+    const appContainer = $('.wrap');
+    const typingInd = $('#typingIndicator');
+    const input = $('#messageInput');
+    const scrollBtn = $('#scrollBtn');
+    const emptyState = $('#emptyState');
+    const entryModal = $('#entryModal');
+    const usersListModal = $('#usersListModal');
+    const sendBtn = $('#sendBtn');
+    
+    // Splash Screen
+    window.addEventListener('load', () => {
+        setTimeout(() => $('#splash-screen').classList.add('hidden'), 1000);
+    });
+
+    // Viewport & Layout
+    function adjustHeight() {
+        if (!window.visualViewport) return;
+        if (window.innerWidth < 600) {
+            appContainer.style.height = `${window.visualViewport.height}px`;
+            window.scrollTo(0, 0); 
+        } else {
+            appContainer.style.height = '100%';
+        }
+        if(isUserNearBottom) scrollToBottom(true);
+    }
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', adjustHeight);
+        window.visualViewport.addEventListener('scroll', adjustHeight);
+    }
+    window.addEventListener('resize', adjustHeight);
+    adjustHeight();
+
+    // Scroll Logic
+    function checkScroll() {
+        const threshold = 150;
+        const distToBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight;
+        isUserNearBottom = distToBottom < threshold;
+        scrollBtn.classList.toggle('hidden', distToBottom <= 200);
+    }
+    messagesEl.addEventListener('scroll', checkScroll);
+    scrollBtn.addEventListener('click', () => scrollToBottom(true));
+
+    function scrollToBottom(force = false) {
+        if(force || isUserNearBottom) {
+            setTimeout(() => messagesEl.scrollTop = messagesEl.scrollHeight, 50);
+        }
+    }
+
+    // --- FIREBASE LISTENERS ---
+    onValue(messagesRef, (snapshot) => {
+        const data = snapshot.val();
+        loadedMessages = [];
+        if (data) Object.keys(data).forEach(key => loadedMessages.push({ id: key, ...data[key] }));
+        renderMessages(loadedMessages);
+    });
+
+    onValue(usersRef, (snapshot) => {
+        allUsersData = snapshot.val() || {};
+        renderUserListModal(allUsersData);
+    });
+
+    onValue(typingRef, (snapshot) => {
+        const data = snapshot.val();
+        let isTyping = false;
+        if (data) {
+            Object.keys(data).forEach(key => {
+                if (key !== user.uid && (Date.now() - data[key].time < 3000)) isTyping = true;
+            });
+        }
+        if (isTyping) {
+            typingInd.classList.add('active');
+            messagesEl.parentNode.appendChild(typingInd); 
+            scrollToBottom();
+        } else {
+            typingInd.classList.remove('active');
+        }
+    });
+
+    // --- RENDER MESSAGES ---
+    function renderMessages(msgs){
+        if(msgs.length === 0) {
+            messagesEl.innerHTML = '';
+            emptyState.style.display = 'flex';
+            messagesEl.appendChild(emptyState);
+            return;
+        }
+        emptyState.style.display = 'none';
+        messagesEl.innerHTML = ''; 
+
+        let lastDate = null;
+
+        msgs.forEach((m, i) => {
+            const isMe = m.uid === user.uid;
+            const prevM = msgs[i-1];
+            const nextM = msgs[i+1];
+
+            const msgDateObj = new Date(m.time);
+            const dateStr = msgDateObj.toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' });
+            
+            if (dateStr !== lastDate) {
+                const dateDiv = document.createElement('div');
+                dateDiv.className = 'date-divider';
+                const today = new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' });
+                let label = dateStr === today ? "আজ" : dateStr;
+                dateDiv.innerHTML = `<span>${label}</span>`;
+                messagesEl.appendChild(dateDiv);
+                lastDate = dateStr;
+            }
+
+            // Determine if user is blocked (visual cue)
+            const senderIsBlocked = allUsersData[m.uid]?.blocked === true;
+
+            const div = document.createElement('div'); 
+            // Grouping logic
+            const isFirst = !prevM || prevM.uid !== m.uid || (new Date(prevM.time).toDateString() !== msgDateObj.toDateString());
+            const isLast = !nextM || nextM.uid !== m.uid || (new Date(nextM.time).toDateString() !== msgDateObj.toDateString());
+            let groupClass = '';
+            if (isFirst && !isLast) groupClass = 'first-of-group';
+            else if (!isFirst && !isLast) groupClass = 'middle-of-group';
+            else if (!isFirst && isLast) groupClass = 'last-of-group';
+
+            div.className = `msg ${isMe ? 'me' : 'you'} ${groupClass}`;
+            
+            if(m.deleted) {
+                div.style.background = 'transparent'; div.style.border = '1px dashed #e5e7eb'; div.style.color = '#9ca3af'; 
+                div.innerHTML = '<em style="font-size:13px;">Deleted Message (Admin View)</em>';
+            } else {
+                const showName = !isMe && isFirst;
+                
+                div.innerHTML = `
+                    ${showName ? `<div class="sender-name" style="${senderIsBlocked?'color:red':''}" data-uid="${m.uid}">
+                        ${escapeHtml(m.senderName)} 
+                        <span style="color:#9ca3af; font-weight:400; font-size:10px;">(ID: ${m.uid})</span>
+                        ${senderIsBlocked?'(Blocked)':''}
+                    </div>` : ''}
+                    <div style="white-space:pre-wrap; word-break: break-word;">${escapeHtml(m.text)}</div>
+                    <div class="meta">
+                        ${isMe ? `<span>✓</span>` : ''} 
+                        <div class="time">${formatTime(m.time)}</div>
+                    </div>
+                `;
+                // Attach Long Press for Options (Delete/Edit/Info)
+                attachLongPress(div, m);
+
+                // Attach Click on Name for Quick Admin
+                if(showName){
+                    const nameEl = div.querySelector('.sender-name');
+                    nameEl.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        // Find user data from cached list
+                        const uData = allUsersData[m.uid] || { name: m.senderName, phone: m.senderPhone };
+                        openUserAdmin(m.uid, uData.name, uData.phone);
+                    });
+                }
+            }
+            messagesEl.appendChild(div);
+        });
+
+        if (isUserNearBottom) scrollToBottom(true);
+    }
+
+    // --- USER LIST (ALL USERS) ---
+    $('#btnShowUsers').addEventListener('click', () => {
+        usersListModal.classList.add('active');
+    });
+    $('#closeUsersBtn').addEventListener('click', () => {
+        usersListModal.classList.remove('active');
+    });
+
+    function renderUserListModal(users) {
+        const container = $('#allUsersContainer');
+        container.innerHTML = '';
+        
+        const ids = Object.keys(users);
+        $('#totalUserCount').textContent = ids.length;
+
+        if(ids.length === 0) {
+            container.innerHTML = '<div style="text-align:center; color:#9ca3af; padding:20px;">No users found.</div>';
+            return;
+        }
+
+        ids.forEach(uid => {
+            const u = users[uid];
+            if(uid === user.uid) return; // Don't list Admin itself
+
+            const el = document.createElement('div');
+            el.className = `user-item ${u.blocked ? 'blocked' : ''}`;
+            const initial = u.name ? u.name.charAt(0).toUpperCase() : '?';
+            
+            el.innerHTML = `
+                <div class="user-avatar">${initial}</div>
+                <div class="user-details">
+                    <div class="user-name">${escapeHtml(u.name)}</div>
+                    <div class="user-phone">${escapeHtml(u.phone)} <span style="font-size:9px; color:#9ca3af; display:block;">ID: ${uid}</span></div>
+                </div>
+                <div class="status-badge ${u.blocked ? 'blocked' : ''}">${u.blocked ? 'Blocked' : 'Active'}</div>
+            `;
+            
+            el.addEventListener('click', () => {
+                usersListModal.classList.remove('active'); // Close list, open edit
+                openUserAdmin(uid, u.name, u.phone);
+            });
+            
+            container.appendChild(el);
+        });
+    }
+
+    // --- USER MANAGEMENT MODAL ---
+    function openUserAdmin(uid, currentName, currentPhone) {
+        targetUserUid = uid;
+        entryModal.classList.add('active');
+        $('#nameInput').value = currentName;
+        $('#phoneInput').value = currentPhone;
+        $('#uidInput').value = uid;
+        $('#entryError').style.display = 'none';
+
+        // Check Block Status from cached data or DB
+        const isBlocked = allUsersData[uid]?.blocked === true;
+        const blkBtn = $('#blockUserBtn');
+        blkBtn.textContent = isBlocked ? 'Unblock User' : 'Block User';
+        blkBtn.style.background = isBlocked ? '#10b981' : '#ef4444';
+        
+        blkBtn.onclick = () => {
+            const action = isBlocked ? 'Unblock' : 'Block';
+            dialog.confirm(`Are you sure you want to ${action} this user?`, () => {
+                    update(ref(db, `users/${uid}`), { blocked: !isBlocked }).then(() => {
+                        hideEntry();
+                    });
+            });
+        };
+    }
+
+    $('#adminCancelBtn').addEventListener('click', hideEntry);
+    function hideEntry(){ entryModal.classList.remove('active'); }
+    
+    $('#adminSaveBtn').addEventListener('click', () => {
+        const newName = $('#nameInput').value.trim();
+        const newPhone = $('#phoneInput').value.trim();
+        if(!newName || !newPhone) { $('#entryError').style.display = 'block'; return; }
+        
+        update(ref(db, `users/${targetUserUid}`), {
+            name: newName,
+            phone: newPhone
+        }).then(() => hideEntry());
+    });
+
+    // --- MESSAGING ---
+    function updateInputState() {
+        const text = input.value.trim();
+        input.style.height = 'auto'; input.style.height = (input.scrollHeight) + 'px';
+        sendBtn.disabled = text.length === 0;
+
+        clearTimeout(typingTimeout);
+        const userTypingRef = ref(db, `typing/${user.uid}`);
+        set(userTypingRef, { name: user.name, time: Date.now() });
+        typingTimeout = setTimeout(() => remove(userTypingRef), 2000);
+    }
+
+    input.addEventListener('input', updateInputState);
+    sendBtn.addEventListener('click', sendMessage);
+    input.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); if(!sendBtn.disabled) sendMessage(); } });
+    $('#emojiBtn').addEventListener('click', () => { input.value += '😊'; updateInputState(); input.focus(); });
+
+    function sendMessage(){ 
+      const text = input.value.trim(); 
+      if(!text) return; 
+      
+      push(messagesRef, { 
+          senderName: user.name, senderPhone: user.phone, uid: user.uid,
+          text: text, time: Date.now(), status: 'sent', deleted: false 
+      });
+      
+      input.value=''; input.style.height = 'auto'; sendBtn.disabled = true; input.focus();
+      clearTimeout(typingTimeout);
+      remove(ref(db, `typing/${user.uid}`));
+      scrollToBottom(true);
+    }
+
+    // --- LONG PRESS & OPTIONS ---
+    const optionsSheet = $('#optionsSheet');
+    function attachLongPress(el, msgObj){
+        const start = () => { longPressTimer = setTimeout(() => showOptions(msgObj), 600); };
+        const end = () => { clearTimeout(longPressTimer); };
+        el.addEventListener('mousedown', start); el.addEventListener('touchstart', start, {passive: true});
+        el.addEventListener('mouseup', end); el.addEventListener('mouseleave', end); el.addEventListener('touchend', end); el.addEventListener('touchmove', end);
+        el.addEventListener('contextmenu', e => { e.preventDefault(); return false; });
+    }
+    let longPressTimer;
+
+    function showOptions(msgObj){ 
+        currentMsgId = msgObj.id; currentMsgText = msgObj.text; currentMsgObj = msgObj;
+        if(navigator.vibrate) navigator.vibrate(50); 
+        optionsSheet.classList.add('active'); 
+    }
+    function hideOptions(){ optionsSheet.classList.remove('active'); currentMsgId = null; }
+    $('#optCancel').addEventListener('click', hideOptions);
+    optionsSheet.addEventListener('click', (e)=>{ if(e.target === optionsSheet) hideOptions(); });
+    
+    $('#optEdit').addEventListener('click', ()=>{
+        if(!currentMsgId) return; const id = currentMsgId; const txt = currentMsgText; hideOptions();
+        dialog.prompt('মেসেজটি পরিবর্তন করুন:', txt, (newText)=>{
+            if(!newText) return; update(ref(db, `messages/${id}`), { text: newText });
+        });
+    });
+    
+    $('#optDelete').addEventListener('click', ()=>{
+        if(!currentMsgId) return; const id = currentMsgId; hideOptions();
+        dialog.confirm('মুছে ফেলতে চান?', ()=>{ update(ref(db, `messages/${id}`), { deleted: true, text: '' }); });
+    });
+
+    // --- SEEN INFO LOGIC ---
+    $('#optInfo').addEventListener('click', () => {
+        hideOptions();
+        const infoModal = $('#msgInfoModal');
+        const listContainer = $('#seenByList');
+        $('#infoMsgText').textContent = currentMsgText;
+        listContainer.innerHTML = '';
+        
+        infoModal.classList.add('active');
+        
+        // This relies on 'seenBy' data existing in the message object
+        // Example structure: message.seenBy = { uid1: time, uid2: time }
+        if (currentMsgObj.seenBy) {
+            const seenUids = Object.keys(currentMsgObj.seenBy);
+            seenUids.forEach(uid => {
+                const uData = allUsersData[uid] || { name: 'Unknown', phone: '' };
+                const time = formatTime(currentMsgObj.seenBy[uid]);
+                
+                const div = document.createElement('div');
+                div.style.padding = '8px 0';
+                div.style.borderBottom = '1px solid #f3f4f6';
+                div.innerHTML = `
+                    <span style="font-weight:600; font-size:14px;">${escapeHtml(uData.name)}</span>
+                    <span style="float:right; font-size:11px; color:#6b7280;">${time}</span>
+                `;
+                listContainer.appendChild(div);
+            });
+        } else {
+             listContainer.innerHTML = '<div style="text-align:center; padding:10px; color:#9ca3af; font-size:13px;">কেউ দেখেনি (Not seen yet)</div>';
+        }
+    });
+
+    $('#closeMsgInfoBtn').addEventListener('click', () => {
+        $('#msgInfoModal').classList.remove('active');
+    });
+
+    // --- UTILS ---
+    const dialog = {
+      el: $('#dialogModal'), title: $('#dTitle'), body: $('#dBody'), input: $('#dInput'), inputCont: $('#dInputContainer'), okBtn: $('#dOk'), cancelBtn: $('#dCancel'),
+      reset(){ this.inputCont.style.display='none'; this.el.classList.remove('active'); },
+      show(t, b, hasInput, onOk){
+        this.title.textContent=t; this.body.textContent=b; this.inputCont.style.display=hasInput?'flex':'none'; this.el.classList.add('active');
+        this.okBtn.onclick=()=>{ const v=hasInput?this.input.value:true; this.reset(); if(onOk) onOk(v); };
+        this.cancelBtn.onclick=()=>{ this.reset(); };
+      },
+      confirm(msg, onYes){ this.show('Confirm', msg, false, onYes); },
+      prompt(msg, def, onEnter){ this.input.value=def||''; this.show('Edit', msg, true, onEnter); setTimeout(()=>this.input.focus(),100); }
+    };
+
+    function formatTime(ts){ return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+    function escapeHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  </script>
+</body>
+</html>
